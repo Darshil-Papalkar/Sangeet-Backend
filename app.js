@@ -58,7 +58,7 @@ client.connect(err => {
     else{
         console.log("Successfully connected to DB");
     }
-})
+});
 
 app.get("/", (req, res) => {
     res.send("Hello From Server");
@@ -73,7 +73,7 @@ app.get("/status", (req, res) => {
 app.get("/getAllMusic", async(req, res) => {
     try{
         const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category" FROM
-                                        "musicPlayer-schema"."musicData"`);
+                                        "musicPlayer-schema"."musicData" ORDER BY "id"`);
         if(data.rowCount > 0){
             res.send({code: 200, message: data.rows});
         }
@@ -87,6 +87,78 @@ app.get("/getAllMusic", async(req, res) => {
     }
 });
 
+app.get("/getAllMusicDetails", async(req, res) => {
+    try{
+        const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category", "musicImageKey",
+                                         "musicKey", "timeStamp" FROM "musicPlayer-schema"."musicData" ORDER BY "id" DESC`);
+        if(data.rowCount > 0){
+            res.send({code: 200, message: data.rows});
+        }
+        else{
+            res.send({code: 404, message: "No Data Found"});
+        }
+    }
+    catch(err){
+        console.log("Error while getting music all files", err);
+        res.send({code: 500, message: "Something went wrong while fetching music Info."});
+    }
+});
+
+app.get("/getAllArtists", async (req, res) => {
+    try{
+        const data = await client.query(`SELECT "id", "name" FROM
+                                        "musicPlayer-schema"."artists" ORDER BY "id"`);
+        if(data.rowCount > 0){
+            res.send({code: 200, message: data.rows});
+        }
+        else{
+            res.send({code: 404, message: "No Data Found"});
+        }
+    }
+    catch(err){
+        console.log("Error while getting music all files", err);
+        res.send({code: 500, message: "Something went wrong while fetching music Info."});
+    }
+});
+
+
+app.get("/getAllGenre", async (req, res) => {
+    try{
+        const data = await client.query(`SELECT "id", "type" FROM
+                                        "musicPlayer-schema"."genre" ORDER BY "id"`);
+        if(data.rowCount > 0){
+            res.send({code: 200, message: data.rows});
+        }
+        else{
+            res.send({code: 404, message: "No Data Found"});
+        }
+    }
+    catch(err){
+        console.log("Error while getting music all files", err);
+        res.send({code: 500, message: "Something went wrong while fetching music Info."});
+    }
+});
+
+
+app.get("/getAllCategory", async (req, res) => {
+    try{
+        const data = await client.query(`SELECT "id", "type" FROM
+                                        "musicPlayer-schema"."category" ORDER BY "id"`);
+        if(data.rowCount > 0){
+            res.send({code: 200, message: data.rows});
+        }
+        else{
+            res.send({code: 404, message: "No Data Found"});
+        }
+    }
+    catch(err){
+        console.log("Error while getting music all files", err);
+        res.send({code: 500, message: "Something went wrong while fetching music Info."});
+    }
+});
+
+// get media key id
+
 app.get("/imageKey/:id", async (req, res) => {
     try{
         const key = req.params.id;
@@ -96,6 +168,23 @@ app.get("/imageKey/:id", async (req, res) => {
         }
         else{
             res.send({code: 404, message: "Couldn't find the musicImage for particular ID"});
+        }
+    }
+    catch(err){
+        console.log("Error Occured while getting Image Key", err);
+        res.send({code: 500, message: "Can't Fetch Image Key"});
+    }
+});
+
+app.get("/artistImageKey/:id", async (req, res) => {
+    try{
+        const key = req.params.id;
+        const data = await client.query(`SELECT "artistImgKey" FROM "musicPlayer-schema"."artists" WHERE "id" = $1`, [key]);
+        if(data.rowCount > 0){
+            res.send({code: 200, message: data.rows[0]});
+        }
+        else{
+            res.send({code: 404, message: "Couldn't find the artistImg for particular ID"});
         }
     }
     catch(err){
@@ -221,7 +310,7 @@ app.post('/addNewSong', upload.any(), async (req, res) => {
 
                 if(result.rowCount === 1){
                     console.log("Files Uploaded Successfully");
-                    res.send({code: 200, message: "Done Successfully", rowData: result.rows[0]});
+                    res.send({code: 200, message: "Done Successfully", rowData: result.rows});
                 }
                 else{
                     console.log("Failed to add data to DB");
@@ -258,10 +347,13 @@ app.post('/postNewArtists', upload.any(), async (req, res) => {
                 const {imageFile} = awsResponse;
     
                 const queryResponse = await client.query(`INSERT INTO "musicPlayer-schema"."artists" 
-                    ("name", "artistImgKey") VALUES ($1, $2)`, [names, imageFile]);
+                    ("name", "artistImgKey") VALUES ($1, $2) returning *`, [names, imageFile]);
+
+                delete queryResponse.rows[0].artistImgKey;
+
                 if(queryResponse.rowCount > 0){
                     console.log("Artist Added Successfully");
-                    res.send({code: 200, message: "Artist Added Successfully"});
+                    res.send({code: 200, message: "Artist Added Successfully", rowData: queryResponse.rows});
                 }
                 else{
                     console.log("Couldn't add artist to DB");
@@ -293,12 +385,15 @@ app.post('/postNewGenre', async (req, res) => {
     const types = req.body.types;
     try{
         if(types.length > 0){
+            const result = [];
             await Promise.all(types.map(async (type) => {
-                await client.query(`INSERT INTO "musicPlayer-schema"."genre"
-                ("type") VALUES ($1)`, [type]);
+                const pro = await client.query(`INSERT INTO "musicPlayer-schema"."genre"
+                ("type") VALUES ($1) returning *`, [type]);
+                result.push(pro.rows[0]);
             }));
+            
             console.log("Added New Genre Successfully");
-            res.send({code: 200, message: "Added New Genre Successfully"});
+            res.send({code: 200, message: "Added New Genre Successfully", rowData: result});
         }
         else{
             res.send({code: 404, message: "Enter Atleast One Genre Type"});
@@ -316,12 +411,15 @@ app.post('/postNewCategory', async (req, res) => {
     const types = req.body.types;
     try{
         if(types.length > 0){
+            const result = [];
             await Promise.all(types.map(async (type) => {
-                await client.query(`INSERT INTO "musicPlayer-schema"."category"
-                ("type") VALUES ($1)`, [type])
+                const pro = await client.query(`INSERT INTO "musicPlayer-schema"."category"
+                ("type") VALUES ($1) returning *`, [type]);
+                result.push(pro.rows[0]);
             }));
+            
             console.log("Added New Category Successfully");
-            res.send({code: 200, message: "Added New Category Successfully"});
+            res.send({code: 200, message: "Added New Category Successfully", rowData: result});
         }
         else{
             res.send({code: 404, message: "Enter Atleast One Category Type"});
@@ -332,6 +430,90 @@ app.post('/postNewCategory', async (req, res) => {
         res.send({code: 500, message: err.message});
     }
     
+});
+
+// update files
+
+app.put('/admin/updateData/:id', async (req, res) => {
+    const id = req.params.id;
+    const body = req.body;
+    try{
+        const dbResponse = await client.query(`UPDATE "musicPlayer-schema"."musicData" SET 
+                            "musicTitle"=$1, "albumTitle"=$2, "artists"=$3, "genre"=$4, "category"=$5, "timeStamp"=$6
+                            WHERE "id" = $7 returning "musicTitle", "albumTitle", "artists", "genre", "category", "id"`, 
+                            [body.musicTitle, body.albumTitle, JSON.parse(body.artist), JSON.parse(body.genre), 
+                            JSON.parse(body.category), body.date, id]);
+        if(dbResponse.rowCount > 0){
+            res.send({code: 200, message: "Updated data successfully", data: dbResponse.rows[0]});
+        }
+        else{
+            res.send({code: 404, message: "Not able to save data for provided id"});
+        }
+    }
+    catch(err){
+        console.log(err);
+        res.send({code: 500, message: err.message});
+    }
+});
+
+app.put('/admin/updateArtist/:id', async (req, res) => {
+    const id = req.params.id;
+    const body = req.body;
+    try{
+        console.log(id, body);
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."artists" SET "name" = $1 WHERE "id" = $2`, 
+                                        [body.name, id]);
+        if(dbRes.rowCount > 0){
+            res.send({code: 200, message: "Artist Updated Successfully"});
+        }
+        else{
+            res.send({code: 404, message: "No Artist found for requested Id"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred while updating artist", err);
+        res.send({code: 500, message: err.message});
+    }
+});
+
+
+app.put('/admin/updateGenre/:id', async (req, res) => {
+    const id = req.params.id;
+    const body = req.body;
+    try{
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."genre" SET "type" = $1 WHERE "id" = $2`, 
+                                        [body.type, id]);
+        if(dbRes.rowCount > 0){
+            res.send({code: 200, message: "Genre Updated Successfully"});
+        }
+        else{
+            res.send({code: 404, message: "No Genre found for requested Id"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred while updating genre", err);
+        res.send({code: 500, message: err.message});
+    }
+});
+
+
+app.put('/admin/updateCategory/:id', async (req, res) => {
+    const id = req.params.id;
+    const body = req.body;
+    try{
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."category" SET "type" = $1 WHERE "id" = $2`, 
+                                        [body.type, id]);
+        if(dbRes.rowCount > 0){
+            res.send({code: 200, message: "Category Updated Successfully"});
+        }
+        else{
+            res.send({code: 404, message: "No Category found for requested Id"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred while updating category", err);
+        res.send({code: 500, message: err.message});
+    }
 });
 
 // deleting files
@@ -371,10 +553,10 @@ app.delete('/admin/musicDelete/:id', async (req, res) => {
 
             if(response.Errors.length > 0){
                 console.log(response.Errors);
-                res.send({code: 400, message: "File Deletion Error from AWS"});
+                res.send({code: 400, message: "File Deletion Failed from AWS"});
             }
             else{
-                console.log("Data Deleted Successfully for Id", id);
+                console.log("Data Deleted Successfully for music Id", id);
                 res.send({code: 200, message: "Data Deleted Successfully"});
             }
         }
@@ -385,7 +567,7 @@ app.delete('/admin/musicDelete/:id', async (req, res) => {
     }
     catch(err){
         console.log("An Error Occurred while deleting files", err);
-        return err;
+        res.send({code: 500, message: err.message});
     }
 });
 
@@ -405,7 +587,7 @@ app.delete('/admin/artistDelete/:id', async (req, res) => {
                 res.send({code: 400, message: "File Deletion Error from AWS"});
             }
             else{
-                console.log("Data Deleted Successfully for Id", id);
+                console.log("Data Deleted Successfully for artist Id", id);
                 res.send({code: 200, message: "Data Deleted Successfully"});
             }
         }
@@ -416,7 +598,47 @@ app.delete('/admin/artistDelete/:id', async (req, res) => {
     }
     catch(err){
         console.log("An Error Occurred while deleting files", err);
-        return err;
+        res.send({code: 500, message: err.message});
+    }
+});
+
+app.delete("/admin/genreDelete/:id", async (req, res) => {
+    const id = req.params.id;
+    try{
+        const dbData = await client.query(`DELETE FROM "musicPlayer-schema"."genre" WHERE "id" = $1`, [id]);
+
+        if(dbData.rowCount > 0){
+            console.log("Data Deleted Successfully for genre Id", id);
+            res.send({code: 200, message: "Genre deleted successfully"});
+        }
+        else{
+            console.log("No Data Found for respective id", id);
+            res.send({code: 404, message: "No Data Found"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred", err);
+        res.send({code: 500, message: err.message}); 
+    }
+});
+
+app.delete("/admin/categoryDelete/:id", async (req, res) => {
+    const id = req.params.id;
+    try{
+        const dbData = await client.query(`DELETE FROM "musicPlayer-schema"."category" WHERE "id" = $1`, [id]);
+
+        if(dbData.rowCount > 0){
+            console.log("Data Deleted Successfully for category Id", id);
+            res.send({code: 200, message: "Category deleted successfully"});
+        }
+        else{
+            console.log("No Data Found for respective id", id);
+            res.send({code: 404, message: "No Data Found"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred", err);
+        res.send({code: 500, message: err.message}); 
     }
 });
 
