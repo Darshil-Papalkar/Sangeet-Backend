@@ -90,9 +90,9 @@ app.get("/getAllMusic", async(req, res) => {
 app.get("/getAllMusicDetails", async(req, res) => {
     try{
         const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category", "musicImageKey",
-                                         "musicKey", "timeStamp" FROM "musicPlayer-schema"."musicData" ORDER BY "id" DESC`);
+                                         "musicKey", "timeStamp" FROM "musicPlayer-schema"."musicData"`);
         if(data.rowCount > 0){
-            res.send({code: 200, message: data.rows});
+            res.send({code: 200, message: data.rows.sort(() => Math.random() - 0.5)});
         }
         else{
             res.send({code: 404, message: "No Data Found"});
@@ -233,6 +233,32 @@ app.get("/image/:key", async (req, res) => {
     }
     catch(err){
         console.log("Error Occurred while downloading image File", err);
+        res.send({code: 404, message: err.message});
+    }
+});
+
+app.get("/getImageByArtistName/:artistName", async (req, res) => {
+    try{
+        const artistName = req.params.artistName;
+        const dbResponse = await client.query(`SELECT "artistImgKey" FROM "musicPlayer-schema"."artists" WHERE "name" = $1`, [artistName]);
+        // console.log(dbResponse.rows[0]);
+        if(dbResponse.rowCount > 0){
+            const key = dbResponse.rows[0].artistImgKey;
+            const mimetype = getMimeType(key);
+            const readStream = await downloadFile(key);
+            const readStreamBody = readStream.Body;
+
+            res.writeHead(200, {'Content-Type': `image/${mimetype}`});
+            res.write(readStreamBody, 'base64');
+            res.end(null, 'base64');
+            // res.send({code: 200, message: dbResponse.rows[0].artistImgKey});
+        }
+        else{
+            res.send(null);
+        }
+    }
+    catch(err){
+        console.log("Error Occurred while downloading artist image File", err);
         res.send({code: 404, message: err.message});
     }
 });
