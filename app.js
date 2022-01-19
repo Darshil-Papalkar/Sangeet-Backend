@@ -72,7 +72,7 @@ app.get("/status", (req, res) => {
 
 app.get("/getAllMusic", async(req, res) => {
     try{
-        const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category" FROM
+        const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category", "show" FROM
                                         "musicPlayer-schema"."musicData" ORDER BY "id"`);
         if(data.rowCount > 0){
             res.send({code: 200, message: data.rows});
@@ -90,9 +90,16 @@ app.get("/getAllMusic", async(req, res) => {
 app.get("/getAllMusicDetails", async(req, res) => {
     try{
         const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category", "musicImageKey",
-                                         "musicKey", "timeStamp" FROM "musicPlayer-schema"."musicData"`);
+                                         "musicKey", "timeStamp", "show" FROM "musicPlayer-schema"."musicData"`);
+        const artistData = await client.query(`SELECT "id", "name", "show" FROM
+                                            "musicPlayer-schema"."artists"`);
+        const genreData = await client.query(`SELECT "id", "type", "show" FROM
+                                            "musicPlayer-schema"."genre"`);
+        const categoryData = await client.query(`SELECT "id", "type", "show" FROM
+                                            "musicPlayer-schema"."category"`);
         if(data.rowCount > 0){
-            res.send({code: 200, message: data.rows.sort(() => Math.random() - 0.5)});
+            res.send({code: 200, message: data.rows.sort(() => Math.random() - 0.5), 
+                    artistData: artistData.rows, genreData: genreData.rows, categoryData: categoryData.rows});
         }
         else{
             res.send({code: 404, message: "No Data Found"});
@@ -106,7 +113,7 @@ app.get("/getAllMusicDetails", async(req, res) => {
 
 app.get("/getAllArtists", async (req, res) => {
     try{
-        const data = await client.query(`SELECT "id", "name" FROM
+        const data = await client.query(`SELECT "id", "name", "show" FROM
                                         "musicPlayer-schema"."artists" ORDER BY "id"`);
         if(data.rowCount > 0){
             res.send({code: 200, message: data.rows});
@@ -124,7 +131,7 @@ app.get("/getAllArtists", async (req, res) => {
 
 app.get("/getAllGenre", async (req, res) => {
     try{
-        const data = await client.query(`SELECT "id", "type" FROM
+        const data = await client.query(`SELECT "id", "type", "show" FROM
                                         "musicPlayer-schema"."genre" ORDER BY "id"`);
         if(data.rowCount > 0){
             res.send({code: 200, message: data.rows});
@@ -142,7 +149,7 @@ app.get("/getAllGenre", async (req, res) => {
 
 app.get("/getAllCategory", async (req, res) => {
     try{
-        const data = await client.query(`SELECT "id", "type" FROM
+        const data = await client.query(`SELECT "id", "type", "show" FROM
                                         "musicPlayer-schema"."category" ORDER BY "id"`);
         if(data.rowCount > 0){
             res.send({code: 200, message: data.rows});
@@ -325,10 +332,10 @@ app.post('/addNewSong', upload.any(), async (req, res) => {
                 const category = body.category.split(',');
     
                 const result = await client.query(`INSERT INTO "musicPlayer-schema"."musicData" ("musicTitle", "albumTitle", 
-                    "genre", "category", "artists", "musicKey", "musicImageKey", "timeStamp") VALUES 
-                    ($1, $2, $3, $4, $5, $6, $7, $8) returning *`, 
+                    "genre", "category", "artists", "musicKey", "musicImageKey", "timeStamp", "show") VALUES 
+                    ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning *`, 
                     [body.musicTitle, body.albumTitle, genre, category, artists,
-                    audioFile, imageFile, body.date]);
+                    audioFile, imageFile, body.date, body.show]);
 
                 delete result.rows[0].musicKey;
                 delete result.rows[0].musicImageKey;
@@ -366,6 +373,7 @@ app.post('/addNewSong', upload.any(), async (req, res) => {
 app.post('/postNewArtists', upload.any(), async (req, res) => {
     const file = req.files;
     const names = req.body.names;
+    const show = req.body.show;
     try{
         if(file.length > 0){
             const awsResponse = await uploadFiles(file);
@@ -373,7 +381,7 @@ app.post('/postNewArtists', upload.any(), async (req, res) => {
                 const {imageFile} = awsResponse;
     
                 const queryResponse = await client.query(`INSERT INTO "musicPlayer-schema"."artists" 
-                    ("name", "artistImgKey") VALUES ($1, $2) returning *`, [names, imageFile]);
+                    ("name", "artistImgKey", "show") VALUES ($1, $2, $3) returning *`, [names, imageFile, show]);
 
                 delete queryResponse.rows[0].artistImgKey;
 
@@ -409,12 +417,13 @@ app.post('/postNewArtists', upload.any(), async (req, res) => {
 
 app.post('/postNewGenre', async (req, res) => {
     const types = req.body.types;
+    const show = req.body.show;
     try{
         if(types.length > 0){
             const result = [];
             await Promise.all(types.map(async (type) => {
                 const pro = await client.query(`INSERT INTO "musicPlayer-schema"."genre"
-                ("type") VALUES ($1) returning *`, [type]);
+                ("type", "show") VALUES ($1, $2) returning *`, [type, show]);
                 result.push(pro.rows[0]);
             }));
             
@@ -435,12 +444,13 @@ app.post('/postNewGenre', async (req, res) => {
 
 app.post('/postNewCategory', async (req, res) => {    
     const types = req.body.types;
+    const show = req.body.show;
     try{
         if(types.length > 0){
             const result = [];
             await Promise.all(types.map(async (type) => {
                 const pro = await client.query(`INSERT INTO "musicPlayer-schema"."category"
-                ("type") VALUES ($1) returning *`, [type]);
+                ("type", "show") VALUES ($1, $2) returning *`, [type, show]);
                 result.push(pro.rows[0]);
             }));
             
@@ -460,15 +470,33 @@ app.post('/postNewCategory', async (req, res) => {
 
 // update files
 
+app.put('/admin/updateMusicFav/:id', async (req, res) => {
+    const id = req.params.id;
+    const show = req.body.state;
+    try{
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."musicData" SET "show"=$1 WHERE "id" = $2`, [ show, id ]);
+        if(dbRes.rowCount > 0){
+            res.send({code: 200, message: show ? "Added Favourite" : "Removed Favourite"});
+        }
+        else{
+            res.send({code: 404, message: "Entry not found"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred while updating artist", err);
+        res.send({code: 500, message: err.message});
+    }
+});
+
 app.put('/admin/updateData/:id', async (req, res) => {
     const id = req.params.id;
     const body = req.body;
     try{
         const dbResponse = await client.query(`UPDATE "musicPlayer-schema"."musicData" SET 
-                            "musicTitle"=$1, "albumTitle"=$2, "artists"=$3, "genre"=$4, "category"=$5, "timeStamp"=$6
-                            WHERE "id" = $7 returning "musicTitle", "albumTitle", "artists", "genre", "category", "id"`, 
+                            "musicTitle"=$1, "albumTitle"=$2, "artists"=$3, "genre"=$4, "category"=$5, "timeStamp"=$6, "show"=$7
+                            WHERE "id" = $8 returning "musicTitle", "albumTitle", "artists", "genre", "category", "id", "show"`, 
                             [body.musicTitle, body.albumTitle, JSON.parse(body.artist), JSON.parse(body.genre), 
-                            JSON.parse(body.category), body.date, id]);
+                            JSON.parse(body.category), body.date, body.show, id]);
         if(dbResponse.rowCount > 0){
             res.send({code: 200, message: "Updated data successfully", data: dbResponse.rows[0]});
         }
@@ -482,13 +510,30 @@ app.put('/admin/updateData/:id', async (req, res) => {
     }
 });
 
+app.put('/admin/updateArtistFav/:id', async (req, res) => {
+    const id = req.params.id;
+    const show = req.body.state;
+    try{
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."artists" SET "show"=$1 WHERE "id" = $2`, [ show, id ]);
+        if(dbRes.rowCount > 0){
+            res.send({code: 200, message: show ? "Added Favourite" : "Removed Favourite"});
+        }
+        else{
+            res.send({code: 404, message: "Entry not found"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred while updating artist", err);
+        res.send({code: 500, message: err.message});
+    }
+});
+
 app.put('/admin/updateArtist/:id', async (req, res) => {
     const id = req.params.id;
     const body = req.body;
     try{
-        console.log(id, body);
-        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."artists" SET "name" = $1 WHERE "id" = $2`, 
-                                        [body.name, id]);
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."artists" SET "name"=$1, "show"=$2 WHERE "id" = $3`, 
+                                        [body.name, body.show, id]);
         if(dbRes.rowCount > 0){
             res.send({code: 200, message: "Artist Updated Successfully"});
         }
@@ -502,13 +547,30 @@ app.put('/admin/updateArtist/:id', async (req, res) => {
     }
 });
 
+app.put('/admin/updateGenreFav/:id', async (req, res) => {
+    const id = req.params.id;
+    const show = req.body.state;
+    try{
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."genre" SET "show"=$1 WHERE "id" = $2`, [ show, id ]);
+        if(dbRes.rowCount > 0){
+            res.send({code: 200, message: show ? "Added Favourite" : "Removed Favourite"});
+        }
+        else{
+            res.send({code: 404, message: "Entry not found"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred while updating genre", err);
+        res.send({code: 500, message: err.message});
+    }
+});
 
 app.put('/admin/updateGenre/:id', async (req, res) => {
     const id = req.params.id;
     const body = req.body;
     try{
-        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."genre" SET "type" = $1 WHERE "id" = $2`, 
-                                        [body.type, id]);
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."genre" SET "type"=$1, "show"=$2 WHERE "id" = $3`, 
+                                        [body.type, body.show, id]);
         if(dbRes.rowCount > 0){
             res.send({code: 200, message: "Genre Updated Successfully"});
         }
@@ -522,13 +584,30 @@ app.put('/admin/updateGenre/:id', async (req, res) => {
     }
 });
 
+app.put('/admin/updateCategoryFav/:id', async (req, res) => {
+    const id = req.params.id;
+    const show = req.body.state;
+    try{
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."category" SET "show"=$1 WHERE "id" = $2`, [ show, id ]);
+        if(dbRes.rowCount > 0){
+            res.send({code: 200, message: show ? "Added Favourite" : "Removed Favourite"});
+        }
+        else{
+            res.send({code: 404, message: "Entry not found"});
+        }
+    }
+    catch(err){
+        console.log("An Error Occurred while updating category", err);
+        res.send({code: 500, message: err.message});
+    }
+});
 
 app.put('/admin/updateCategory/:id', async (req, res) => {
     const id = req.params.id;
     const body = req.body;
     try{
-        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."category" SET "type" = $1 WHERE "id" = $2`, 
-                                        [body.type, id]);
+        const dbRes = await client.query(`UPDATE "musicPlayer-schema"."category" SET "type" = $1, "show" = $2 WHERE "id" = $3`, 
+                                        [body.type, body.show, id]);
         if(dbRes.rowCount > 0){
             res.send({code: 200, message: "Category Updated Successfully"});
         }
