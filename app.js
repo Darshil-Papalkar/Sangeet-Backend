@@ -6,6 +6,8 @@ const util = require('util');
 const path = require('path');
 const { Client } = require('pg');
 
+const webpush = require('web-push');
+const { webPush } = require('./webpush');
 const { uploadFile, downloadFile, getBuckets, deleteFile } = require('./awsS3Client');
 
 const app = express();
@@ -66,6 +68,53 @@ app.get("/", (req, res) => {
 
 app.get("/status", (req, res) => {
     res.sendStatus(200);
+});
+
+webPush();
+
+app.get('/broadcast', async (req, res) => {
+    try{
+        const notification = {
+            title: 'Hey, this is a push notification!'
+        };
+        const subscriptions = await client.query('SELECT * FROM "musicPlayer-schema"."subscription"');
+
+        const notifications = [];
+
+        subscriptions.rows.forEach(subscription => {
+            notifications.push(
+                webpush.sendNotification(subscription, JSON.stringify(notification))
+            );
+        });
+
+        await Promise.all(notifications);
+        res.sendStatus(200);
+    }
+    catch(err){
+        console.log(err);
+        res.sendStatus(500);
+    }
+});
+
+app.post('/subscription', async (req, res) => {
+    const subscription = req.body.subscription;
+    const today = req.body.today;
+    try{
+        
+        const dbRes = await client.query(`INSERT INTO "musicPlayer-schema"."subscription" ("endpoint", "expirationTime", 
+                                                "keys", "timeStamp") VALUES ($1, $2, $3, $4)`, 
+                            [subscription.endpoint, subscription.expirationTime, subscription.keys, today]);
+        if(dbRes.rowCount > 0){
+            res.send({code: 200, message: ""});
+        }
+        else{
+            res.send({code: 404, message: ""});
+        }
+    }
+    catch(err){
+        console.log(err);
+        res.sendStatus(500);
+    }
 });
 
 // get music List
@@ -465,7 +514,6 @@ app.post('/postNewCategory', async (req, res) => {
         console.log(err);
         res.send({code: 500, message: err.message});
     }
-    
 });
 
 // update files
