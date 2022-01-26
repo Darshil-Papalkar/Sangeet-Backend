@@ -91,8 +91,8 @@ app.get('/broadcast', async (req, res) => {
         res.sendStatus(200);
     }
     catch(err){
-        console.log(err);
-        res.sendStatus(500);
+        console.log("An Error occured while broadcasting", err.body);
+        res.sendStatus(err.statusCode);
     }
 });
 
@@ -100,15 +100,21 @@ app.post('/subscription', async (req, res) => {
     const subscription = req.body.subscription;
     const today = req.body.today;
     try{
-        
-        const dbRes = await client.query(`INSERT INTO "musicPlayer-schema"."subscription" ("endpoint", "expirationTime", 
-                                                "keys", "timeStamp") VALUES ($1, $2, $3, $4)`, 
-                            [subscription.endpoint, subscription.expirationTime, subscription.keys, today]);
-        if(dbRes.rowCount > 0){
-            res.send({code: 200, message: ""});
+        const response = await client.query(`SELECT * FROM "musicPlayer-schema"."subscription" WHERE "endpoint" = $1`, [subscription.endpoint]);
+        // console.log(response.rowCount);
+        if(response.rowCount === 0){
+            const dbRes = await client.query(`INSERT INTO "musicPlayer-schema"."subscription" ("endpoint", "expirationTime", 
+                                                    "keys", "timeStamp") VALUES ($1, $2, $3, $4)`, 
+                                [subscription.endpoint, subscription.expirationTime, subscription.keys, today]);
+            if(dbRes.rowCount > 0){
+                res.send({code: 200, message: ""});
+            }
+            else{
+                res.send({code: 404, message: ""});
+            }
         }
         else{
-            res.send({code: 404, message: ""});
+            res.send({code: 400, message: ""});
         }
     }
     catch(err){
@@ -121,7 +127,7 @@ app.post('/subscription', async (req, res) => {
 
 app.get("/getAllMusic", async(req, res) => {
     try{
-        const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category", "show" FROM
+        const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category", "show", "duration" FROM
                                         "musicPlayer-schema"."musicData" ORDER BY "id"`);
         if(data.rowCount > 0){
             res.send({code: 200, message: data.rows});
@@ -139,7 +145,7 @@ app.get("/getAllMusic", async(req, res) => {
 app.get("/getAllMusicDetails", async(req, res) => {
     try{
         const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "artists", "genre", "category", "musicImageKey",
-                                         "musicKey", "timeStamp", "show" FROM "musicPlayer-schema"."musicData"`);
+                                         "musicKey", "timeStamp", "show", "duration" FROM "musicPlayer-schema"."musicData"`);
         const artistData = await client.query(`SELECT "id", "name", "show" FROM
                                             "musicPlayer-schema"."artists"`);
         const genreData = await client.query(`SELECT "id", "type", "show" FROM
@@ -213,6 +219,47 @@ app.get("/getAllCategory", async (req, res) => {
     }
 });
 
+app.get("/album/:albumName", async (req, res) => {
+    const albumName = req.params.albumName;
+    try{
+        const dbRes = await client.query(`SELECT * FROM "musicPlayer-schema"."musicData" WHERE "albumTitle" = $1 and "show" = true`, 
+                                    [albumName]);
+        if(dbRes.rowCount > 0){
+            dbRes.rows.forEach(entry => {
+                delete entry.timeStamp;
+            });
+            res.send({code: 200, message: dbRes.rows});
+        }
+        else{
+            res.send({code: 404, message: "No Data found for requested album"});
+        }
+    }
+    catch(err){
+        console.log(`An error occured while fetching ${albumName} album details -`, err);
+        res.send({code: 500, message: err.message});
+    }
+});
+
+app.get("/artist/:artistName", async (req, res) => {
+    const artistName = req.params.artistName;
+    try{
+        const dbRes = await client.query(`SELECT * FROM "musicPlayer-schema"."musicData" WHERE $1=ANY("artists") AND "show"=true`, [artistName]);
+        if(dbRes.rowCount > 0){
+            dbRes.rows.forEach(entry => {
+                delete entry.timeStamp;
+            });
+            res.send({code: 200, message: dbRes.rows});
+        }
+        else{
+            res.send({code: 404, message: "No Data found for requested artist"});
+        }
+    }
+    catch(err){
+        console.log(`An error occured while fetching ${artistName} artist details -`, err);
+        res.send({code: 500, message: err.message});
+    }
+});
+
 // get media key id
 
 app.get("/imageKey/:id", async (req, res) => {
@@ -278,6 +325,10 @@ const getMimeType = (key) => {
 app.get("/image/:key", async (req, res) => {
     try{
         const key = req.params.key;
+        if(key === `undefined`) {
+            return ;
+        }
+    
         const mimetype = getMimeType(key);
     
         const readStream = await downloadFile(key);    
@@ -288,7 +339,7 @@ app.get("/image/:key", async (req, res) => {
         res.end(null, 'base64');
     }
     catch(err){
-        console.log("Error Occurred while downloading image File", err);
+        console.log("Error Occurred while downloading image File", err.message);
         res.send({code: 404, message: err.message});
     }
 });
@@ -322,6 +373,9 @@ app.get("/getImageByArtistName/:artistName", async (req, res) => {
 app.get("/audio/:key", async (req, res) => {
     try{
         const key = req.params.key;
+        if(key === `undefined`) {
+            return res.sendStatus(400);
+        }
         const mimetype = getMimeType(key);
     
         const readStream = await downloadFile(key);
@@ -381,10 +435,10 @@ app.post('/addNewSong', upload.any(), async (req, res) => {
                 const category = body.category.split(',');
     
                 const result = await client.query(`INSERT INTO "musicPlayer-schema"."musicData" ("musicTitle", "albumTitle", 
-                    "genre", "category", "artists", "musicKey", "musicImageKey", "timeStamp", "show") VALUES 
-                    ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning *`, 
+                    "genre", "category", "artists", "musicKey", "musicImageKey", "timeStamp", "show", "duration") VALUES 
+                    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *`, 
                     [body.musicTitle, body.albumTitle, genre, category, artists,
-                    audioFile, imageFile, body.date, body.show]);
+                    audioFile, imageFile, body.date, body.show, body.duration]);
 
                 delete result.rows[0].musicKey;
                 delete result.rows[0].musicImageKey;

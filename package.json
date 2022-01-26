@@ -4,7 +4,8 @@
   "description": "Backend processing for music player",
   "main": "app.js",
   "scripts": {
-    "dev": "nodemon app.js",
+    "test": "nodemon app.js",
+    "dev": "pm2 start app.js --watch",
     "start": "pm2 start app.js"
   },
   "author": "Darshil Papalkar",
