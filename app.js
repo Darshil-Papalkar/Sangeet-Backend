@@ -219,6 +219,7 @@ app.get("/getAllCategory", async (req, res) => {
     }
 });
 
+
 app.get("/album/:albumName", async (req, res) => {
     const albumName = req.params.albumName;
     try{
@@ -239,6 +240,7 @@ app.get("/album/:albumName", async (req, res) => {
         res.send({code: 500, message: err.message});
     }
 });
+
 
 app.get("/artist/:artistName", async (req, res) => {
     const artistName = req.params.artistName;
