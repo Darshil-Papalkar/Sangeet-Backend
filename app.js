@@ -8,11 +8,12 @@ const { getAudioKey, getAudio } = require('./audioAPI');
 const { getAlbumByName } = require('./musicData/album');
 const { getArtistByName } = require('./musicData/artist');
 const { getBuckets } = require('./awsS3Client');
-const { Subscription, Broadcast, Unsubscription } = require('./Notifications/channel');
-const { getImageKey, getArtistImageKey, getImage, getArtistImageByName } = require('./imageAPI');
+const { Subscription, getBroadCast, Broadcast, 
+        Unsubscription, DeleteBroadCast, getBroadCastNotifications } = require('./Notifications/channel');
+const { getImageKey, getArtistImageKey, getImage, getArtistImageByName, getPlaylistImageKey } = require('./imageAPI');
 
 const { musicData, getMusic, addMusic, 
-        toggleMusicFav, updateMusicData, deleteMusic } = require('./musicData/index');
+        toggleMusicFav, updateMusicData, deleteMusic, getMusicIdNameAlbum } = require('./musicData/index');
 
 const { getAllGenre, addGenre, updateGenre, 
         updateGenreFav, deleteGenre } = require('./MusicRelated/genre');
@@ -22,6 +23,9 @@ const { getAllArtist, addArtist, updateArtist,
 
 const { getAllCategory, addCategory, updateCategory, 
         updateCategoryFav, deleteCategory } = require('./MusicRelated/category');
+
+const { createPlaylist, getAllPlaylist, updatePlaylist, updatePlaylistSongs, getPlaylistById,
+        updatePlaylistFav, deletePlaylist } = require("./MusicRelated/playlist");
 
 
 const app = express();
@@ -66,16 +70,22 @@ app.get("/status", (req, res) => {
 
 // Notifications -- webpush
 
-app.get('/broadcast', Broadcast);
+app.post('/broadcast', upload.any(), Broadcast);
 app.post('/subscription', Subscription);
 app.delete('/unsubcription', Unsubscription);
+app.delete("/deleteBroadcast/:id", DeleteBroadCast);
 // Getting data
 
 app.get("/getAllMusic", getMusic);
 app.get("/getAllGenre", getAllGenre);
 app.get("/getAllArtists", getAllArtist);
+app.get("/getAllBroadCast", getBroadCast);
 app.get("/getAllMusicDetails", musicData);
 app.get("/getAllCategory", getAllCategory);
+app.get("/getAllPlaylist", getAllPlaylist);
+app.get("/getPlaylistById/:id", getPlaylistById);
+app.get("/getMusicIdNameAlbum", getMusicIdNameAlbum);
+app.get("/getAllBroadcastNotification", getBroadCastNotifications)
 
 // Getting Custom Data
 
@@ -87,13 +97,13 @@ app.get("/artist/:artistName", getArtistByName);
 app.get("/imageKey/:id", getImageKey);
 app.get("/audioKey/:id", getAudioKey);
 app.get("/artistImageKey/:id", getArtistImageKey);
+app.get("/playlistImageKey/:id", getPlaylistImageKey);
 
 // Getting Media Files
 
 app.get("/image/:key", getImage);
 app.get("/audio/:key", getAudio);
 app.get("/getImageByArtistName/:artistName", getArtistImageByName);
-
 
 ////// Admin  //////
 
@@ -106,6 +116,7 @@ app.post('/addNewSong', upload.any(), addMusic);
 app.post('/postNewGenre', addGenre);
 app.post('/postNewCategory', addCategory);
 app.post('/postNewArtists', upload.any(), addArtist);
+app.post('/postNewPlaylist', upload.any(), createPlaylist);
 
 // updating existing data
 
@@ -123,14 +134,16 @@ app.put('/admin/updateGenreFav/:id', updateGenreFav);
 app.put('/admin/updateCategory/:id', updateCategory);
 app.put('/admin/updateCategoryFav/:id', updateCategoryFav);
 
-
+app.put('/admin/updatePlaylist/:id', updatePlaylist);
+app.put('/admin/updatePlaylistFav/:id', updatePlaylistFav);
+app.put('/admin/updatePlaylistSong/:id', updatePlaylistSongs);
 // deleting data and metadata
 
 app.delete('/admin/musicDelete/:id', deleteMusic);
-app.delete('/admin/artistDelete/:id', deleteArtist);
 app.delete("/admin/genreDelete/:id", deleteGenre);
+app.delete('/admin/artistDelete/:id', deleteArtist);
 app.delete("/admin/categoryDelete/:id", deleteCategory);
-
+app.delete("/admin/playlistDelete/:id", deletePlaylist);
 // express port connection
 
 const port = process.env.PORT || 5000;

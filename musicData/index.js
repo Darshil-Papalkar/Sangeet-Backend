@@ -87,6 +87,23 @@ const getMusic = async(req, res) => {
     }
 };
 
+const getMusicIdNameAlbum = async (req, res) => {
+    try{
+        const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "musicImageKey" FROM
+                                        "musicPlayer-schema"."musicData" ORDER BY "id"`);
+        if(data.rowCount > 0){
+            res.send({code: 200, message: data.rows});
+        }
+        else{
+            res.send({code: 404, message: "No Data Found"});
+        }
+    }
+    catch(err){
+        console.log("Error while getting music selected files", err);
+        res.send({code: 500, message: "Something went wrong while fetching music Info."});
+    }
+};
+
 const addMusic = async (req, res) => {
     const files = req.files;
     const body = req.body;
@@ -216,3 +233,4 @@ exports.musicData = musicData;
 exports.deleteMusic = deleteMusic;
 exports.toggleMusicFav = toggleMusicFav;
 exports.updateMusicData = updateMusicData;
+exports.getMusicIdNameAlbum = getMusicIdNameAlbum;

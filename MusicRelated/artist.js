@@ -76,9 +76,9 @@ const addArtist = async (req, res) => {
                 const queryResponse = await client.query(`INSERT INTO "musicPlayer-schema"."artists" 
                 ("name", "artistImgKey", "show") VALUES ($1, $2, $3) returning *`, [names, imageFile, show]);
 
-                delete queryResponse.rows[0].artistImgKey;
-
+                
                 if(queryResponse.rowCount > 0){
+                    delete queryResponse.rows[0].artistImgKey;
                     console.log("Artist Added Successfully");
                     res.send({code: 200, message: "Artist Added Successfully", rowData: queryResponse.rows});
                 }

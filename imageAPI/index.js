@@ -42,6 +42,23 @@ const getArtistImageKey = async (req, res) => {
     }
 };
 
+const getPlaylistImageKey = async (req, res) => {
+    try{
+        const key = req.params.id;
+        const data = await client.query(`SELECT "image" FROM "musicPlayer-schema"."playlist" WHERE "id" = $1`, [key]);
+        if(data.rowCount > 0){
+            res.send({code: 200, message: data.rows[0]});
+        }
+        else{
+            res.send({code: 404, message: "Couldn't find the playlist Image for particular ID"});
+        }
+    }
+    catch(err){
+        console.log("Error Occured while getting Image Key", err);
+        res.send({code: 500, message: "Can't Fetch Image Key"});
+    }
+};
+
 const getImage = async (req, res) => {
     try{
         const key = req.params.key;
@@ -93,4 +110,5 @@ const getArtistImageByName = async (req, res) => {
 exports.getImage = getImage;
 exports.getImageKey = getImageKey;
 exports.getArtistImageKey = getArtistImageKey;
+exports.getPlaylistImageKey = getPlaylistImageKey;
 exports.getArtistImageByName = getArtistImageByName;
