@@ -67,6 +67,20 @@ const updateGenre = async (req, res) => {
         const dbRes = await client.query(`UPDATE "musicPlayer-schema"."genre" SET "type"=$1, "show"=$2 WHERE "id" = $3`, 
                                         [body.type, body.show, id]);
         if(dbRes.rowCount > 0){
+            const oldData = await client.query(`SELECT "id", "genre" FROM "musicPlayer-schema"."musicData" 
+                                                WHERE $1=ANY("genre")`, [body.old]);
+    
+            const data = oldData.rows;
+
+            const promises = data.map(async (rowData) => {
+                const index = rowData.genre.indexOf(body.old);
+                rowData.genre.splice(index, 1, body.type);
+                await client.query(`UPDATE "musicPlayer-schema"."musicData" SET "genre" = $1 WHERE "id" = $2`,
+                                    [ rowData.genre, rowData.id ]);
+            });
+    
+            await Promise.all(promises);
+
             res.send({code: 200, message: "Genre Updated Successfully"});
         }
         else{

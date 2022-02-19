@@ -173,9 +173,48 @@ const toggleMusicFav = async (req, res) => {
 };
 
 const updateMusicData = async (req, res) => {
-    const id = req.params.id;
     const body = req.body;
+    const file = req.files;
+    const id = req.params.id;
+
     try{
+        if(file.length > 0){
+            const data = await uploadFiles(file);
+            if(Object.keys(data).length > 0){
+                const { audioFile, imageFile } = data;
+
+                const oldData = await client.query(`SELECT "musicKey", "musicImageKey" FROM 
+                                                    "musicPlayer-schema"."musicData" WHERE "id" = $1`, [id]);
+                if(oldData.rowCount > 0){
+                    const files = [];
+                    
+                    if(audioFile){
+                        files.push(oldData.rows[0].musicKey);
+                    }
+
+                    if(imageFile){
+                        files.push(oldData.rows[0].musicImageKey);
+                    }
+                    
+                    const response = await deleteFiles(files);
+                    
+                    if(response.Errors.length > 0){
+                        console.log(response.Errors);
+                        return res.send({code: 400, message: "File Deletion Error from AWS"});
+                    }
+                    else{
+                        const resp = await client.query(`UPDATE "musicPlayer-schema"."musicData" SET "musicKey" = $1, 
+                                                        "musicImageKey" = $2, "duration" = $3 WHERE "id" = $4`, 
+                                                        [audioFile || oldData.rows[0].musicKey , 
+                                                         imageFile || oldData.rows[0].musicImageKey, body.duration, id]);
+                        if(resp.rowCount > 0)
+                            console.log("Data Deleted Successfully for artist Id and Modified Table Entries", id);
+                        else
+                            console.log("Data deleted successfully but couldn't modify table entries", id);
+                    }
+                }
+            }
+        }
         const dbResponse = await client.query(`UPDATE "musicPlayer-schema"."musicData" SET 
                             "musicTitle"=$1, "albumTitle"=$2, "artists"=$3, "genre"=$4, "category"=$5, "timeStamp"=$6, "show"=$7
                             WHERE "id" = $8 returning "musicTitle", "albumTitle", "artists", "genre", "category", "id", "show"`, 

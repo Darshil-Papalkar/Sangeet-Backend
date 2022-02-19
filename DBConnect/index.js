@@ -1,6 +1,5 @@
 const { Client } = require('pg');
 
-
 const credentials = {
     user: process.env.AWS_POSTGRES_USERNAME ,
     host: process.env.AWS_POSTGRES_ENDPOINT ,

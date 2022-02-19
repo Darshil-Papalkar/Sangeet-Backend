@@ -120,12 +120,12 @@ app.post('/postNewPlaylist', upload.any(), createPlaylist);
 
 // updating existing data
 
-app.put('/admin/updateData/:id', updateMusicData);
+app.put('/admin/updateData/:id', upload.any(), updateMusicData);
 app.put('/admin/updateMusicFav/:id', toggleMusicFav);
 
 // updating existing metadata
 
-app.put('/admin/updateArtist/:id', updateArtist);
+app.put('/admin/updateArtist/:id', upload.any(), updateArtist);
 app.put('/admin/updateArtistFav/:id', updateArtistFav);
 
 app.put('/admin/updateGenre/:id', updateGenre);
