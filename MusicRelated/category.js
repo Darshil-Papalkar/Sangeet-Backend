@@ -25,7 +25,7 @@ const addCategory = async (req, res) => {
             const result = [];
             await Promise.all(types.map(async (type) => {
                 const pro = await client.query(`INSERT INTO "musicPlayer-schema"."category"
-                ("type", "show") VALUES ($1, $2) returning *`, [type, show]);
+                ("type", "show") VALUES ($1, $2) returning *`, [type.trim(), show]);
                 result.push(pro.rows[0]);
             }));
             

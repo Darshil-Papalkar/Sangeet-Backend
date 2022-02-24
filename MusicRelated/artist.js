@@ -74,7 +74,7 @@ const addArtist = async (req, res) => {
                 const {imageFile} = awsResponse;
     
                 const queryResponse = await client.query(`INSERT INTO "musicPlayer-schema"."artists" 
-                ("name", "artistImgKey", "show") VALUES ($1, $2, $3) returning *`, [names, imageFile, show]);
+                ("name", "artistImgKey", "show") VALUES ($1, $2, $3) returning *`, [names.trim(), imageFile, show]);
 
                 delete queryResponse?.rows[0]?.artistImgKey;
                 

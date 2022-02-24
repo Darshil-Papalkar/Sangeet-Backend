@@ -3,8 +3,8 @@ const { client } = require("../DBConnect/index");
 const getAlbumByName = async (req, res) => {
     const albumName = req.params.albumName;
     try{
-        const dbRes = await client.query(`SELECT * FROM "musicPlayer-schema"."musicData" WHERE "albumTitle" = $1 and "show" = true`, 
-                                    [albumName]);
+        const dbRes = await client.query(`SELECT * FROM "musicPlayer-schema"."musicData" WHERE "albumTitle" = $1`, 
+                                    [albumName.trim()]);
         if(dbRes.rowCount > 0){
             dbRes.rows.forEach(entry => {
                 delete entry.timeStamp;

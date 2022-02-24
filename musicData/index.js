@@ -120,7 +120,7 @@ const addMusic = async (req, res) => {
                 const result = await client.query(`INSERT INTO "musicPlayer-schema"."musicData" ("musicTitle", "albumTitle", 
                     "genre", "category", "artists", "musicKey", "musicImageKey", "timeStamp", "show", "duration") VALUES 
                     ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *`, 
-                    [body.musicTitle, body.albumTitle, genre, category, artists,
+                    [body.musicTitle.trim(), body.albumTitle.trim(), genre, category, artists,
                     audioFile, imageFile, body.date, body.show, body.duration]);
 
                 delete result.rows[0].musicKey;
@@ -218,7 +218,7 @@ const updateMusicData = async (req, res) => {
         const dbResponse = await client.query(`UPDATE "musicPlayer-schema"."musicData" SET 
                             "musicTitle"=$1, "albumTitle"=$2, "artists"=$3, "genre"=$4, "category"=$5, "timeStamp"=$6, "show"=$7
                             WHERE "id" = $8 returning "musicTitle", "albumTitle", "artists", "genre", "category", "id", "show"`, 
-                            [body.musicTitle, body.albumTitle, JSON.parse(body.artist), JSON.parse(body.genre), 
+                            [body.musicTitle.trim(), body.albumTitle.trim(), JSON.parse(body.artist), JSON.parse(body.genre), 
                             JSON.parse(body.category), body.date, body.show, id]);
         if(dbResponse.rowCount > 0){
             res.send({code: 200, message: "Updated data successfully", data: dbResponse.rows[0]});

@@ -148,7 +148,6 @@ app.delete("/admin/playlistDelete/:id", deletePlaylist);
 
 const port = process.env.PORT || 5000;
 app.listen(port, () => {
-
     webPush();
     getBuckets();
     console.log(`Listening on port - ${port}`);

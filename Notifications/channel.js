@@ -57,7 +57,7 @@ const Broadcast = async (req, res) => {
 
             const queryResponse = await client.query(`INSERT INTO "musicPlayer-schema"."broadcast" 
                 ("title", "body", "image", "timestamp", "url") VALUES ($1, $2, $3, $4, $5) returning *`, 
-                [body.title, body.body, imageFile, body.today, body.url]);
+                [body.title.trim(), body.body.trim(), imageFile, body.today, body.url.trim()]);
 
             if(queryResponse.rowCount > 0){
                 const notification = {
@@ -173,11 +173,17 @@ const getBroadCastNotifications = async (req, res) => {
     try{
         const resData = await client.query(`SELECT "timeStamp" FROM "musicPlayer-schema"."subscription" 
                                             WHERE "endpoint" = $1`, [req.query.endpoint]);
-                                            
-        const subscriptionTimestamp = new Date(resData.rows[0].timeStamp).toISOString();
+        
+        let subscriptionTimestamp;
+        if(resData.rowCount > 0){
+            subscriptionTimestamp = new Date(resData.rows[0].timeStamp).toISOString();
+        }
+        else{
+            subscriptionTimestamp = new Date().toISOString();
+        }
 
         const queryData = await client.query(`SELECT * FROM "musicPlayer-schema"."broadcast" WHERE 
-                                            "timestamp" >= $1 ORDER BY "id" DESC`, [subscriptionTimestamp]);
+            "timestamp" >= $1 ORDER BY "id" DESC`, [subscriptionTimestamp]);
 
         if(queryData.rowCount > 0){
             res.send({ code: 200, message: queryData.rows });

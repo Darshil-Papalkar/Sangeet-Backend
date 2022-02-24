@@ -59,7 +59,7 @@ const createPlaylist = async (req, res) => {
 
                 const dbRes = await client.query(`INSERT INTO "musicPlayer-schema"."playlist" ("playlist_name", "song_id", 
                                                     "show", "image") VALUES ($1, $2, $3, $4) returning *`, 
-                                                    [name, [], show, imageFile]);
+                                                    [name.trim(), [], show, imageFile]);
                 
                 if(dbRes.rowCount > 0){
                     delete dbRes.rows[0].image;
