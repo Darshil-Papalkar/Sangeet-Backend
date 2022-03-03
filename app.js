@@ -21,7 +21,7 @@ const { getAllGenre, addGenre, updateGenre,
 const { getAllArtist, addArtist, updateArtist, 
         updateArtistFav, deleteArtist } = require('./MusicRelated/artist');
 
-const { getAllCategory, addCategory, updateCategory, 
+const { getAllCategory, getCategoryByName, addCategory, updateCategory, 
         updateCategoryFav, deleteCategory } = require('./MusicRelated/category');
 
 const { createPlaylist, getAllPlaylist, updatePlaylist, updatePlaylistSongs, getPlaylistById,
@@ -85,6 +85,7 @@ app.get("/getAllCategory", getAllCategory);
 app.get("/getAllPlaylist", getAllPlaylist);
 app.get("/getPlaylistById/:id", getPlaylistById);
 app.get("/getMusicIdNameAlbum", getMusicIdNameAlbum);
+app.get("/getCategoryByName/:name", getCategoryByName);
 app.get("/getAllBroadcastNotification", getBroadCastNotifications)
 
 // Getting Custom Data

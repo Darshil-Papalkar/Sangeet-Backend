@@ -17,6 +17,25 @@ const getAllCategory = async (req, res) => {
     }
 };
 
+const getCategoryByName = async (req, res) => {
+    const category = req.params.name;
+    try{
+        const data = await client.query(`SELECT "id", "musicTitle", "albumTitle", "musicKey", "musicImageKey", 
+                                        "artists", "duration" FROM "musicPlayer-schema"."musicData" 
+                                        WHERE $1 = ANY("category")`, [category]);
+        if(data.rowCount > 0){
+            res.send({ code: 200, message: data.rows });
+        }
+        else{
+            res.send({ code: 404, message: "No Data Found" });
+        }
+    }
+    catch(err){
+        console.log("An Error Occured while getting category name data", err);
+        res.send({ code: 500, message: err.message });
+    }
+};
+
 const addCategory = async (req, res) => {    
     const types = req.body.types;
     const show = req.body.show;
@@ -117,4 +136,5 @@ exports.addCategory = addCategory;
 exports.updateCategory = updateCategory;
 exports.deleteCategory = deleteCategory;
 exports.getAllCategory = getAllCategory;
+exports.getCategoryByName = getCategoryByName;
 exports.updateCategoryFav = updateCategoryFav;
