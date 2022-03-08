@@ -107,7 +107,7 @@ const getMusicIdNameAlbum = async (req, res) => {
 const addMusic = async (req, res) => {
     const files = req.files;
     const body = req.body;
-
+    
     try{
         if(files){
             const data = await uploadFiles(files);

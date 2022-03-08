@@ -74,6 +74,7 @@ app.post('/broadcast', upload.any(), Broadcast);
 app.post('/subscription', Subscription);
 app.delete('/unsubcription', Unsubscription);
 app.delete("/deleteBroadcast/:id", DeleteBroadCast);
+
 // Getting data
 
 app.get("/getAllMusic", getMusic);
